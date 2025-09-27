@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Long Answer Worksheet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .model-answer {
+            display: none;
+            border-left: 4px solid #4f46e5; /* Indigo-600 */
+        }
+        .feedback-card {
+            background-color: #f0fdf4; /* Green-50 */
+            border: 1px solid #bbf7d0; /* Green-200 */
+        }
+        .feedback-excellence {
+            color: #15803d; /* Green-700 */
+        }
+        .feedback-improvement {
+            color: #be123c; /* Rose-700 */
+        }
+        /* Spinner animation */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #4f46e5;
+            animation: spin 1s ease infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 sm:p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6 sm:p-8 lg:p-10">
+        <!-- Header -->
+        <header class="border-b-2 border-gray-200 pb-6 mb-8 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">AI-Powered Long Answer Worksheet</h1>
+            <p class="mt-2 text-gray-600">Enter your questions and model answers, then have students respond and use the AI marker for instant feedback.</p>
+        </header>
+
+        <!-- Questions Container -->
+        <div id="questions-container" class="space-y-12">
+            <!-- Questions will be dynamically inserted here -->
+        </div>
+
+        <!-- Overall Grade Section -->
+        <footer class="mt-12 pt-8 border-t-2 border-gray-200">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Overall Worksheet Grade</h2>
+            <div class="text-center">
+                <button id="grade-worksheet-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors text-lg transition-transform transform hover:scale-105">Calculate Final Grade</button>
+            </div>
+            <div id="overall-grade-container" class="mt-6 text-center">
+                <!-- Grade will be displayed here -->
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('questions-container');
+            const numberOfQuestions = 10;
+
+            for (let i = 1; i <= numberOfQuestions; i++) {
+                const qId = i;
+                const questionBlock = document.createElement('div');
+                questionBlock.className = 'question-block p-6 rounded-xl border border-gray-200 shadow-sm';
+                questionBlock.id = `question-${qId}`;
+                questionBlock.innerHTML = `
+                    <div class="mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">Question ${qId}</h2>
+                    </div>
+                    <div class="mb-4">
+                        <label for="question-text-${qId}" class="block text-sm font-medium text-gray-700 mb-1">Question Text:</label>
+                        <textarea id="question-text-${qId}" rows="3" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter the question text here..."></textarea>
+                    </div>
+
+                    <div class="model-answer bg-indigo-50 p-4 rounded-lg mt-4 mb-4">
+                        <label for="model-answer-${qId}" class="font-semibold text-indigo-800 mb-1">Model Answer:</label>
+                        <textarea id="model-answer-${qId}" rows="4" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter the model answer here..."></textarea>
+                    </div>
+
+                    <div>
+                        <label for="answer-${qId}" class="block text-sm font-medium text-gray-700 mb-1">Student's Answer:</label>
+                        <textarea id="answer-${qId}" rows="8" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="The student writes their answer here..."></textarea>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 mt-4">
+                        <button class="mark-btn bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors" data-id="${qId}">Mark with AI</button>
+                        <button class="toggle-answer-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors" data-id="${qId}">Show Model Answer</button>
+                    </div>
+
+                    <div id="feedback-container-${qId}" class="mt-6"></div>
+                `;
+                container.appendChild(questionBlock);
+            }
+
+            // Add event listeners
+            document.querySelectorAll('.mark-btn').forEach(button => {
+                button.addEventListener('click', handleMarking);
+            });
+
+            document.querySelectorAll('.toggle-answer-btn').forEach(button => {
+                button.addEventListener('click', toggleModelAnswer);
+            });
+            
+            document.getElementById('grade-worksheet-btn').addEventListener('click', calculateOverallGrade);
+        });
+
+        function toggleModelAnswer(event) {
+            const questionId = event.target.dataset.id;
+            const questionBlock = document.getElementById(`question-${questionId}`);
+            const modelAnswerDiv = questionBlock.querySelector('.model-answer');
+            const button = event.target;
+
+            if (modelAnswerDiv.style.display === 'none' || modelAnswerDiv.style.display === '') {
+                modelAnswerDiv.style.display = 'block';
+                button.textContent = 'Hide Model Answer';
+            } else {
+                modelAnswerDiv.style.display = 'none';
+                button.textContent = 'Show Model Answer';
+            }
+        }
+
+        async function handleMarking(event) {
+            const questionId = event.target.dataset.id;
+            const questionBlock = document.getElementById(`question-${questionId}`);
+            const studentAnswer = questionBlock.querySelector(`#answer-${questionId}`).value;
+            const questionText = questionBlock.querySelector(`#question-text-${questionId}`).value;
+            const modelAnswerText = questionBlock.querySelector(`#model-answer-${questionId}`).value;
+            const feedbackContainer = questionBlock.querySelector(`#feedback-container-${questionId}`);
+            
+            // --- INSERT YOUR API KEY HERE ---
+            const apiKey = "AIzaSyCr0QyaBQlItOVbyUpsbRx3ls1uPsOtAKk";
+            // --------------------------------
+
+            if (apiKey === "AIzaSyCr0QyaBQlItOVbyUpsbRx3ls1uPsOtAKk") {
+                 feedbackContainer.innerHTML = `<p class="text-red-600 font-medium">Error: Please insert your Google AI API key directly into the HTML file's code.</p>`;
+                 return;
+            }
+
+            if (questionText.trim() === '' || modelAnswerText.trim() === '') {
+                feedbackContainer.innerHTML = `<p class="text-red-600 font-medium">Error: Please enter the question text and a model answer before marking.</p>`;
+                return;
+            }
+            if (studentAnswer.trim() === '') {
+                feedbackContainer.innerHTML = `<p class="text-red-600 font-medium">Error: Please enter a student's answer before marking.</p>`;
+                return;
+            }
+
+            feedbackContainer.innerHTML = `
+                <div class="flex items-center justify-center flex-col p-4">
+                    <div class="spinner"></div>
+                    <p class="mt-2 text-indigo-600 font-medium">AI is grading the answer...</p>
+                </div>
+            `;
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `You are an expert teacher. Your task is to evaluate a student's answer to a question. You will be given the question, a model answer for reference, and the student's answer. Compare the student's answer to the model answer and grade it out of 6. Provide constructive feedback, highlighting what the student did well (Areas of Excellence) and where they can improve (Areas for Improvement). Be specific and encouraging.`;
+
+            const userPrompt = `
+                Question: "${questionText}"
+                Model Answer: "${modelAnswerText}"
+                Student's Answer: "${studentAnswer}"
+
+                Please grade the student's answer and provide feedback.
+            `;
+            
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [{ text: userPrompt }]
+                }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            score: { type: "NUMBER", description: "The score out of 6." },
+                            excellence: { type: "STRING", description: "Specific points the student answered well." },
+                            improvement: { type: "STRING", description: "Specific areas where the student can improve." }
+                        },
+                        required: ["score", "excellence", "improvement"]
+                    }
+                }
+            };
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (jsonText) {
+                    const feedback = JSON.parse(jsonText);
+                    displayFeedback(feedbackContainer, feedback);
+                } else {
+                    throw new Error("Invalid response structure from API.");
+                }
+
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                feedbackContainer.innerHTML = `<p class="text-red-600">Sorry, there was an error grading your answer. Please try again later.</p>`;
+            }
+        }
+        
+        function displayFeedback(container, feedback) {
+            const finalScore = Math.max(0, Math.min(6, Math.round(feedback.score))); // Ensure score is between 0 and 6
+
+            container.innerHTML = `
+                <div class="feedback-card p-4 rounded-lg">
+                    <h3 class="text-lg font-bold text-gray-900 mb-3">AI Feedback & Score</h3>
+                    <div class="text-center bg-white p-4 rounded-lg shadow-inner mb-4">
+                        <p class="text-sm font-semibold text-gray-600">Score</p>
+                        <p class="text-4xl font-bold text-indigo-600" data-score="${finalScore}">${finalScore}<span class="text-2xl text-gray-500"> / 6</span></p>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <h4 class="font-semibold feedback-excellence">✅ Areas of Excellence:</h4>
+                            <p class="text-sm text-gray-700 ml-2">${feedback.excellence}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold feedback-improvement">💡 Areas for Improvement:</h4>
+                            <p class="text-sm text-gray-700 ml-2">${feedback.improvement}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function calculateOverallGrade() {
+            const questions = document.querySelectorAll('.question-block');
+            const numberOfQuestions = questions.length;
+            let totalScore = 0;
+            let markedQuestions = 0;
+            const maxScore = numberOfQuestions * 6;
+
+            questions.forEach(question => {
+                const scoreElement = question.querySelector('[data-score]');
+                if (scoreElement) {
+                    totalScore += parseInt(scoreElement.dataset.score, 10);
+                    markedQuestions++;
+                }
+            });
+
+            const gradeContainer = document.getElementById('overall-grade-container');
+            let resultHTML = '';
+
+            if (markedQuestions === 0) {
+                gradeContainer.innerHTML = `<p class="text-red-600 font-medium">Please mark at least one question before calculating the final grade.</p>`;
+                return;
+            }
+            
+            if (markedQuestions < numberOfQuestions) {
+                resultHTML += `<p class="text-yellow-600 font-medium mb-4">Warning: Only ${markedQuestions} of ${numberOfQuestions} questions have been marked. The grade is based on the work completed so far.</p>`;
+            }
+
+            const percentage = (totalScore / maxScore) * 100;
+            let grade = 'U';
+
+            if (percentage >= 75) grade = '9';
+            else if (percentage >= 70) grade = '8';
+            else if (percentage >= 65) grade = '7';
+            else if (percentage >= 55) grade = '6';
+            else if (percentage >= 45) grade = '5';
+            else if (percentage >= 40) grade = '4';
+            else if (percentage >= 35) grade = '3';
+            else if (percentage >= 30) grade = '2';
+            else if (percentage >= 25) grade = '1';
+
+            resultHTML += `
+                <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-600">Total Score</p>
+                            <p class="text-3xl font-bold text-gray-800">${totalScore} / ${maxScore}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-600">Percentage</p>
+                            <p class="text-3xl font-bold text-gray-800">${percentage.toFixed(1)}%</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-600">Final Grade</p>
+                            <p class="text-3xl font-bold text-green-600">${grade}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            gradeContainer.innerHTML = resultHTML;
+        }
+
+    </script>
+</body>
+</html>
+
